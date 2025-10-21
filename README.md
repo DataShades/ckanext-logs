@@ -2,6 +2,16 @@
 
 A CKAN extension to view CKAN logs files in the CKAN web interface.
 
+The extension provides a table view of log entries with pagination, sorting, and filtering capabilities.
+
+You can navigate to a specific log table from the dashboard.
+
+![alt text](./docs/dashboard.png)
+
+Clicking on one of the log tables will open the log viewer:
+
+![alt text](./docs/table.png)
+
 ## Requirements
 
 Compatibility with core CKAN versions:
@@ -24,18 +34,12 @@ pip install -e .
    config file (by default the config file is located at
    `/etc/ckan/default/ckan.ini`).
 
-
-
 ## Config settings
 
 ```yaml
 - key: ckanext.logs.logs_path
 description: Specify the path to the logs folder
 default: /var/log/ckan
-
-- key: ckanext.logs.log_filename
-description: Specify the log file name to display in the logs viewer
-default: ckan_default.error.log
 ```
 
 ## Tests

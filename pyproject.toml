@@ -1,6 +1,6 @@
 [project]
 name = "ckanext-logs"
-version = "0.0.1"
+version = "1.0.0"
 description = "Log file viewer"
 readme = "README.md"
 authors = [
@@ -17,7 +17,7 @@ classifiers = [
 
 keywords = [ "CKAN", ]
 dependencies = [
-    "ckanext-tables>=0.4.0,<1.0.0"
+    "ckanext-tables>=1.2.0,<2.0.0"
 ]
 
 [project.urls]

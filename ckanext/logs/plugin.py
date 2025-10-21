@@ -10,6 +10,7 @@ from ckanext.logs.table import LogsTable
 
 @tk.blanket.config_declarations
 @tk.blanket.blueprints
+@tk.blanket.helpers
 class LogsPlugin(p.SingletonPlugin):
     p.implements(p.IConfigurer)
     p.implements(p.ISignal)
@@ -18,8 +19,6 @@ class LogsPlugin(p.SingletonPlugin):
 
     def update_config(self, config_: CKANConfig) -> None:
         tk.add_template_directory(config_, "templates")
-        tk.add_public_directory(config_, "public")
-        tk.add_resource("assets", "logs")
 
     # # ISignal
 

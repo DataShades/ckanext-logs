@@ -5,7 +5,3 @@ groups:
       - key: ckanext.logs.logs_path
         description: Specify the path to the logs folder
         default: /var/log/ckan
-
-      - key: ckanext.logs.log_filename
-        description: Specify the log file name to display in the logs viewer
-        default: ckan_default.error.log

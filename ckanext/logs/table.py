@@ -1,135 +1,61 @@
 from __future__ import annotations
 
-import gzip
-import re
-from pathlib import Path
-from typing import Any
-
 import ckan.plugins.toolkit as tk
 from ckan.types import Context
 
-from ckanext.tables.shared import (
-    ColumnDefinition,
-    ListDataSource,
-    TableDefinition,
-    formatters,
-)
+from ckanext.tables.formatters import TrimStringFormatter
+from ckanext.tables.shared import ActionHandlerResult, ColumnDefinition, TableActionDefinition, TableDefinition
 
-from ckanext.logs import config
-
-LOG_ENTRY_START_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\s+"
-    r"(INFO|ERROR|WARNING|WARNI|DEBUG|CRITICAL)\s+"
-    r"\[([^\]]+)\]\s*(.*)"
-)
-
-
-class LogDataSource(ListDataSource):
-    """Data source for reading log files with multi-line entries."""
-
-    def __init__(self, n_logs: int = 10000):
-        self.logs_path = Path(config.get_logs_folder() or "")
-        self.logs_filename = config.get_log_file_name()
-        self.n_logs = n_logs
-        self.data: list[dict[str, Any]] = []
-        self.filtered: list[dict[str, Any]] | None = None
-
-        self._load_all_logs()
-
-    def _load_all_logs(self):
-        """Load all log entries from all files, newest first."""
-        log_files = sorted(
-            self.logs_path.glob(f"{self.logs_filename}*"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
-
-        all_entries: list[dict[str, Any]] = []
-
-        for log_file in log_files:
-            lines = self._read_all_lines(log_file)
-            entries = self._parse_lines(lines)
-            all_entries.extend(entries)
-
-            if len(all_entries) >= self.n_logs:
-                break
-
-        # sort by timestamp descending
-        all_entries.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
-
-        self.data = all_entries
-        self.filtered = self.data
-
-    def _read_all_lines(self, log_file: Path) -> list[str]:
-        """Read all lines from a file (supports .gz)."""
-        try:
-            if log_file.suffix == ".gz":
-                with gzip.open(log_file, "rt", errors="ignore") as f:
-                    return f.readlines()
-            else:
-                with log_file.open("r", errors="ignore") as f:
-                    return f.readlines()
-        except Exception:  # noqa
-            return []
-
-    def _parse_lines(self, lines: list[str]) -> list[dict[str, Any]]:
-        entries = []
-        buffer: list[str] = []
-        last_timestamp = ""
-
-        for line in lines:
-            match = LOG_ENTRY_START_RE.match(line)
-
-            if match:
-                if buffer:
-                    entries.append(
-                        {
-                            "timestamp": last_timestamp,
-                            "level": "ERROR",
-                            "module": "traceback",
-                            "message": "\n".join(buffer),
-                        }
-                    )
-                    buffer = []
-
-                # Start new normal log entry
-                timestamp, level, module, message = match.groups()
-
-                last_timestamp = timestamp
-                entries.append(
-                    {
-                        "timestamp": timestamp,
-                        "level": level,
-                        "module": module,
-                        "message": message,
-                    }
-                )
-            else:
-                buffer.append(line.rstrip())
-
-        return entries
+from ckanext.logs.data_source import LogDataSource
+from ckanext.logs.formatters import LogsDialogModalFormatter
 
 
 class LogsTable(TableDefinition):
     """Table definition for the logs dashboard."""
 
-    def __init__(self):
+    def __init__(self, log_file: str):
         """Initialize the table definition."""
+        self.log_file = log_file
+
         super().__init__(
             name="logs",
-            data_source=LogDataSource(),
+            data_source=LogDataSource(log_file=log_file),
+            ajax_url=tk.url_for("logs.ajax_url", table_name="logs", log_file=log_file),
             columns=[
                 ColumnDefinition(field="timestamp", width=180, resizable=False),
                 ColumnDefinition(field="level", width=100, resizable=False),
                 ColumnDefinition(field="module", width=200),
                 ColumnDefinition(
                     field="message",
-                    formatters=[
-                        (formatters.DialogModalFormatter, {}),
-                    ],
+                    formatters=[(TrimStringFormatter, {"max_length": 88})],
                     tabulator_formatter="html",
                 ),
+                ColumnDefinition(
+                    title=" ",
+                    field="details",
+                    formatters=[(LogsDialogModalFormatter, {"max_length": 88})],
+                    tabulator_formatter="html",
+                    width=50,
+                    sortable=False,
+                    resizable=False,
+                    filterable=False,
+                ),
             ],
+            table_actions=[
+                TableActionDefinition(
+                    action="export_logs",
+                    label=tk._("Export Logs"),
+                    icon="fa fa-download",
+                    callback=self.table_action_export_logs,
+                ),
+            ]
+        )
+
+    def table_action_export_logs(self) -> ActionHandlerResult:
+        return ActionHandlerResult(
+            success=True,
+            error=None,
+            redirect=tk.h.url_for("logs.export_log_file", log_file=self.log_file),
         )
 
     @classmethod
