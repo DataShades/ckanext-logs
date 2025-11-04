@@ -6,15 +6,15 @@ import zipfile
 from datetime import datetime, timezone
 from typing import TypedDict
 
-from flask import Blueprint, Response, jsonify, send_file
+from flask import Blueprint, Response, send_file
 from flask.views import MethodView
 
 import ckan.plugins.toolkit as tk
 
 from ckanext.tables.shared import GenericTableView
-from ckanext.tables.views import AjaxURLView
 
 from ckanext.logs.config import get_logs_folder
+from ckanext.logs.table import LogsTable
 
 bp = Blueprint("logs", __name__, url_prefix="/ckan-admin/logs")
 
@@ -133,53 +133,23 @@ class LogsExportTableView(MethodView):
 
 
 class LogsGenericTableView(GenericTableView):
-    def get(self, log_file: str) -> str | Response:  # type: ignore
-        table = self.table_class(log_file=log_file)  # type: ignore
+    def get(self, log_file: str) -> str | Response:   # type: ignore
+        table = self.table(log_file=log_file)  # type: ignore
 
-        return table.render_table(breadcrumb_label=self.breadcrumb_label, page_title=self.page_title)
+        if exporter_name := tk.request.args.get("exporter"):
+            return self._export(table, exporter_name)
 
+        if tk.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return self._ajax_data(table)
 
-class LogsAjaxURLView(AjaxURLView):
-    def get(self, table_name: str, log_file: str) -> Response:  # type: ignore
-        table_class = tk.h.tables_get_table(table_name)
-
-        if not table_class:
-            return tk.abort(404, tk._(f"Table {table_name} not found"))
-
-        params = self.build_params()
-        table_instance = table_class(log_file=log_file)
-        data = table_instance.get_data(params)
-        total = table_instance.get_total_count(params)
-
-        return jsonify({"data": data, "last_page": (total + params.size - 1) // params.size})
-
-    def post(self, table_name: str, log_file: str) -> Response:  # type: ignore
-        table_class = tk.h.tables_get_table(table_name)
-
-        if not table_class:
-            return tk.abort(404, tk._(f"Table {table_name} not found"))
-
-        row_action = tk.request.form.get("row_action")
-        table_action = tk.request.form.get("table_action")
-        bulk_action = tk.request.form.get("bulk_action")
-        row = tk.request.form.get("row")
-        rows = tk.request.form.get("rows")
-
-        table = table_class(log_file=log_file)
-
-        if table_action:
-            return self._apply_table_action(table, table_action)
-
-        if row_action:
-            return self._apply_row_action(table, row_action, row)
-
-        return self._apply_bulk_action(table, bulk_action, rows)
-
+        return table.render_table(
+            breadcrumb_label=self.breadcrumb_label,
+            page_title=self.page_title,
+        )
 
 bp.before_request(before_request)
 
 bp.add_url_rule("/dashboard", view_func=LogsDashboardView.as_view("dashboard"))
 bp.add_url_rule("/export", view_func=LogsDownloadView.as_view("download"))
 bp.add_url_rule("/export_log_file/<log_file>", view_func=LogsExportTableView.as_view("export_log_file"))
-bp.add_url_rule("/table/<log_file>", view_func=LogsGenericTableView.as_view("table", table="logs"))
-bp.add_url_rule("/ajax-url/<table_name>/<log_file>", view_func=LogsAjaxURLView.as_view("ajax_url"))
+bp.add_url_rule("/table/<log_file>", view_func=LogsGenericTableView.as_view("table", table=LogsTable))

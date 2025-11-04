@@ -20,7 +20,6 @@ class LogsTable(TableDefinition):
         super().__init__(
             name="logs",
             data_source=LogDataSource(log_file=log_file),
-            ajax_url=tk.url_for("logs.ajax_url", table_name="logs", log_file=log_file),
             columns=[
                 ColumnDefinition(field="timestamp", width=180, resizable=False),
                 ColumnDefinition(field="level", width=100, resizable=False),
