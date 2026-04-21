@@ -22,7 +22,7 @@ class LogsTable(TableDefinition):
             data_source=LogDataSource(log_file=log_file),
             columns=[
                 ColumnDefinition(field="timestamp", width=180, resizable=False),
-                ColumnDefinition(field="level", width=100, resizable=False),
+                ColumnDefinition(field="level", width=120, resizable=False),
                 ColumnDefinition(field="module", width=200),
                 ColumnDefinition(
                     field="message",
@@ -30,7 +30,7 @@ class LogsTable(TableDefinition):
                     tabulator_formatter="html",
                 ),
                 ColumnDefinition(
-                    title=" ",
+                    title="",
                     field="details",
                     formatters=[(LogsDialogModalFormatter, {"max_length": 88})],
                     tabulator_formatter="html",
